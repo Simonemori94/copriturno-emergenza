@@ -63,13 +63,13 @@ function show(){
     if(!d.shifts.length&&!d.trips.length){ap(app,h("div","mut","Nessun servizio."));return}
     d.shifts.forEach(function(s){
       s.bands.forEach(function(b){
-        var c=h("div","card"),top=h("div","row");ap(top,h("span","b",s.name+" · "+fm(b.s)+"–"+fm(b.e)),h("span","mut",b.vehicle||s.vehicle||""));ap(c,top);
+        var c=h("div","card"),top=h("div","row");ap(top,h("span","b",s.name+" · "+fm(b.s)+"–"+fm(b.e)));ap(c,top);if(b.vehicle||s.vehicle)ap(c,h("div","mut","Mezzo: "+(b.vehicle||s.vehicle)));
         b.roles.forEach(function(r){var names=r.parts.filter(function(p){return p.name}).map(function(p){return p.name+((p.s===b.s&&p.e===b.e)?"":" ("+fm(p.s)+"–"+fm(p.e)+")")}).join(", "),gap=r.parts.some(function(p){return !p.name})&&!r.opt;
           if(!names&&!gap)return;var l=h("div","mut",r.name+": ");l.appendChild(h("span",gap&&!names?"red":"",names||"SCOPERTO"));if(gap&&names)l.appendChild(h("span","red"," · resta scoperto"));c.appendChild(l)});
         app.appendChild(c)});
     });
     d.trips.forEach(function(t){
-      var c=h("div","card"),top=h("div","row");ap(top,h("span","b",fm(t.t_meet)+" · "+(t.kind==="course"?(t.title||"Corso"):(t.kind==="event"?(t.title||"Evento"):"Viaggio"))+(t.dest?" → "+t.dest:"")),h("span","mut",t.vehicle||""));ap(c,top);
+      var c=h("div","card"),top=h("div","row");ap(top,h("span","b",fm(t.t_meet)+" · "+(t.kind==="course"?(t.title||"Corso"):(t.kind==="event"?(t.title||"Evento"):"Viaggio"))+(t.dest?" → "+t.dest:"")));ap(c,top);if(t.vehicle)ap(c,h("div","mut","Mezzo: "+t.vehicle));
       if(t.pat){var p=t.pat;ap(c,h("div","mut","Paziente: "+(p.who.join(", ")||"—")+(p.from?" · da "+p.from:"")+(p.needs.length?" · "+p.needs.join(", "):"")))}
       ap(c,h("div","mut","Equipaggio: "+(t.crew.map(function(x){return x.role+" "+x.name}).join(", ")||"nessuno")));
       if(t.missing&&t.missing.length)ap(c,h("div","red","Mancano: "+t.missing.join(", ")));
