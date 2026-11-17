@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Copriturno · copia di emergenza</title>
+<style>
+:root{--bg:#f6f7fa;--card:#fff;--ink:#14213d;--mut:#5f6c80;--red:#c8102e;--line:#dfe3ea}
+@media(prefers-color-scheme:dark){:root{--bg:#10151f;--card:#1a2130;--ink:#e8ecf4;--mut:#9aa6bb;--red:#ff6b81;--line:#2c3649}}
+*{box-sizing:border-box}body{margin:0;font:16px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+main{max-width:720px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:17px;margin:22px 0 8px;position:sticky;top:0;background:var(--bg);padding:6px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin:8px 0}
+.mut{color:var(--mut);font-size:14px}.red{color:var(--red);font-weight:600}.b{font-weight:600}
+.warn{border-left:4px solid var(--red)}
+input,button{font:inherit;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+input{width:100%;margin:8px 0}button{background:var(--red);color:#fff;border:0;font-weight:600;width:100%}
+a{color:inherit}.row{display:flex;justify-content:space-between;gap:8px}.tabs{display:flex;gap:8px;margin:12px 0}
+.tabs button{background:var(--card);color:var(--ink);border:1px solid var(--line)}.tabs button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+</style>
+</head>
+<body>
+<main>
+<h1>Copriturno · copia di emergenza</h1>
+<div class="mut">Da usare solo se l'app non funziona. È una fotografia in sola lettura dei prossimi giorni.</div>
+<div id="app"></div>
+</main>
+<script>
+(function(){
+var app=document.getElementById("app"),slug=(location.hash||"").replace(/^#/,"").replace(/[^a-f0-9]/g,""),FILE=null,DATA=null,TAB="prog";
+function h(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+function ap(p){for(var i=1;i<arguments.length;i++)if(arguments[i])p.appendChild(arguments[i]);return p}
+function fm(m){var d=m>=1440;m=m%1440;return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")+(d?" (+1)":"")}
+function b64(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+function login(msg){
+  app.textContent="";
+  if(!slug){ap(app,h("div","card warn","Collegamento incompleto: manca il codice dell'associazione dopo il simbolo #. Chiedilo all'amministrazione."));return}
+  var c=h("div","card"),pw=h("input");pw.type="password";pw.placeholder="Password di emergenza";pw.autocomplete="off";
+  var bt=h("button",null,"Apri");bt.onclick=function(){go(pw.value)};pw.onkeydown=function(e){if(e.key==="Enter")go(pw.value)};
+  ap(c,h("div","b","Inserisci la password di emergenza"),pw,bt);if(msg)ap(c,h("div","red",msg));ap(app,c);
+}
+function go(pass){
+  if(!pass)return;app.textContent="";ap(app,h("div","card","Apro…"));
+  (FILE?Promise.resolve(FILE):fetch("data/"+slug+".json?"+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("nofile");return r.json()})).then(function(f){
+    FILE=f;
+    return crypto.subtle.importKey("raw",new TextEncoder().encode(pass),"PBKDF2",false,["deriveKey"]).then(function(k){
+      return crypto.subtle.deriveKey({name:"PBKDF2",hash:"SHA-256",salt:b64(f.s),iterations:f.it},k,{name:"AES-GCM",length:256},false,["decrypt"])
+    }).then(function(key){return crypto.subtle.decrypt({name:"AES-GCM",iv:b64(f.i)},key,b64(f.c))});
+  }).then(function(buf){DATA=JSON.parse(new TextDecoder().decode(buf));show()},function(e){
+    if(e&&e.message==="nofile"){FILE=null;login("Copia non trovata: controlla il collegamento.");return}
+    login("Password non corretta.");
+  });
+}
+function show(){
+  app.textContent="";
+  var at=new Date(DATA.at),old=(Date.now()-at.getTime())>36*3600000;
+  ap(app,h("div","card"+(old?" warn":""),DATA.org+" · aggiornata il "+at.toLocaleDateString("it-IT")+" alle "+at.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})+(old?" — ATTENZIONE: la copia è vecchia, i turni potrebbero essere cambiati.":"")));
+  var tabs=h("div","tabs");[["prog","Programma"],["rub","Rubrica"]].forEach(function(t){var b=h("button",null,t[1]);b.setAttribute("aria-pressed",TAB===t[0]);b.onclick=function(){TAB=t[0];show()};tabs.appendChild(b)});ap(app,tabs);
+  if(TAB==="rub")return rub();
+  DATA.days.forEach(function(d){
+    ap(app,h("h2",null,d.title));
+    if(!d.shifts.length&&!d.trips.length){ap(app,h("div","mut","Nessun servizio."));return}
+    d.shifts.forEach(function(s){
+      s.bands.forEach(function(b){
+        var c=h("div","card"),top=h("div","row");ap(top,h("span","b",s.name+" · "+fm(b.s)+"–"+fm(b.e)),h("span","mut",b.vehicle||s.vehicle||""));ap(c,top);
+        b.roles.forEach(function(r){var names=r.parts.filter(function(p){return p.name}).map(function(p){return p.name+((p.s===b.s&&p.e===b.e)?"":" ("+fm(p.s)+"–"+fm(p.e)+")")}).join(", "),gap=r.parts.some(function(p){return !p.name})&&!r.opt;
+          if(!names&&!gap)return;var l=h("div","mut",r.name+": ");l.appendChild(h("span",gap&&!names?"red":"",names||"SCOPERTO"));if(gap&&names)l.appendChild(h("span","red"," · resta scoperto"));c.appendChild(l)});
+        app.appendChild(c)});
+    });
+    d.trips.forEach(function(t){
+      var c=h("div","card"),top=h("div","row");ap(top,h("span","b",fm(t.t_meet)+" · "+(t.kind==="course"?(t.title||"Corso"):(t.kind==="event"?(t.title||"Evento"):"Viaggio"))+(t.dest?" → "+t.dest:"")),h("span","mut",t.vehicle||""));ap(c,top);
+      if(t.pat){var p=t.pat;ap(c,h("div","mut","Paziente: "+(p.who.join(", ")||"—")+(p.from?" · da "+p.from:"")+(p.needs.length?" · "+p.needs.join(", "):"")))}
+      ap(c,h("div","mut","Equipaggio: "+(t.crew.map(function(x){return x.role+" "+x.name}).join(", ")||"nessuno")));
+      if(t.missing&&t.missing.length)ap(c,h("div","red","Mancano: "+t.missing.join(", ")));
+      app.appendChild(c)});
+  });
+}
+function rub(){
+  DATA.people.forEach(function(u){var c=h("div","card row");ap(c,h("span","b",u.name+(u.admin?" (amministrazione)":"")));
+    if(u.phone){var a=h("a",null,u.phone);a.href="tel:"+u.phone.replace(/[^0-9+]/g,"");c.appendChild(a)}else c.appendChild(h("span","mut","—"));app.appendChild(c)});
+}
+login();
+})();
+</script>
+</body>
+</html>
